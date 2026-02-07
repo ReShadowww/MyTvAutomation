@@ -1,18 +1,26 @@
 services:
   mysql:
-    image: mysql:9.6.0                   # Specify exact MySQL version for reproducibility
-    container_name: my-local-mysql       # Custom name for the container (easy to reference)
-    restart: unless-stopped              # Automatically restart unless stopped manually
+    image: mysql:9.6.0
+    container_name: my-local-mysql
+    restart: unless-stopped
     ports:
-      - "3306:3306"                      # Expose MySQL port 3306 (host:container), for LAN access
+      - "3306:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: rootpass      # Root user password (Always change for production!)
-      MYSQL_DATABASE: mydb               # Creates a database named 'mydb' at first startup
-      MYSQL_USER: localuser              # Creates a user 'localuser'
-      MYSQL_PASSWORD: localpass          # Password for 'localuser'
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: mydb
+      MYSQL_USER: localuser
+      MYSQL_PASSWORD: localpass
     volumes:
-      - mysql_data:/var/lib/mysql        # Persist database files so data survives restarts/rebuilds
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # Initial SQL script run only at first startup
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  flask:
+    build: .                            # Auto-build your Flask Dockerfile in this folder
+    container_name: flask-web
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mysql
 
 volumes:
-  mysql_data:                           # Docker managed named volume for MySQL persistent storage
+  mysql_data:
