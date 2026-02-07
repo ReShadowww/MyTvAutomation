@@ -1,0 +1,21 @@
+version: '3.8'  # Docker Compose file format/version
+
+services:
+  mysql:
+    image: mysql:9.6.0                   # Specify exact MySQL version for reproducibility
+    container_name: my-local-mysql       # Custom name for the container (easy to reference)
+    restart: unless-stopped              # Automatically restart unless stopped manually
+    ports:
+      - "3306:3306"                      # Expose MySQL port 3306 (host:container), for LAN access
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass      # Root user password (Always change for production!)
+      MYSQL_DATABASE: mydb               # Creates a database named 'mydb' at first startup
+      MYSQL_USER: localuser              # Creates a user 'localuser'
+      MYSQL_PASSWORD: localpass          # Password for 'localuser'
+    volumes:
+      - mysql_data:/var/lib/mysql        # Persist database files so data survives restarts/rebuilds
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # Initial SQL script run only at first startup
+      - ./mysql_logs:/var/lib/mysql      # Host directory for MySQL’s data & log files (.err, etc.)
+
+volumes:
+  mysql_data:                           # Docker managed named volume for MySQL persistent storage
