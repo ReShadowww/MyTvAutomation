@@ -1,5 +1,3 @@
-version: '3.8'  # Docker Compose file format/version
-
 services:
   mysql:
     image: mysql:9.6.0                   # Specify exact MySQL version for reproducibility
