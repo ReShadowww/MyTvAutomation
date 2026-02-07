@@ -4,7 +4,7 @@ import mysql.connector
 app = Flask(__name__)
 
 db_config = {
-    'host': 'mysql',       # <-- Not '127.0.0.1', but the service name
+    'host': 'mysql',       # <-- Not '127.0.0.1', but the service name (mysql)
     'user': 'localuser',
     'password': 'localpass',
     'database': 'mydb',
