@@ -13,7 +13,6 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql        # Persist database files so data survives restarts/rebuilds
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # Initial SQL script run only at first startup
-      - ./mysql_logs:/var/lib/mysql      # Host directory for MySQL’s data & log files (.err, etc.)
 
 volumes:
   mysql_data:                           # Docker managed named volume for MySQL persistent storage

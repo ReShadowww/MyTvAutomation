@@ -25,12 +25,13 @@ def index():
             request.form.get("access_token", ""),
             request.form.get("device_id", ""),
             request.form.get("auth_code", ""),
+            int(request.form.get("auth_code_updated", 0)),
             token_id
         )
         update_query = """
             UPDATE tokens
             SET client_id=%s, client_secret=%s, refresh_token=%s, access_token=%s,
-                device_id=%s, auth_code=%s
+                device_id=%s, auth_code=%s, auth_code_updated=%s
             WHERE id=%s
         """
         try:
@@ -38,7 +39,6 @@ def index():
             conn.commit()
             cursor.close()
             conn.close()
-            # Redirect after POST, include status parameter
             return redirect(url_for('index', status='success'))
         except Exception as e:
             print(e)
@@ -64,11 +64,11 @@ def index():
             body { background: #f8fafc; }
             .table-responsive { margin-top: 40px; }
             h2 { margin-top: 40px; margin-bottom: 20px; }
-            input[type="text"] { min-width: 120px; }
+            input[type="text"], select { min-width: 120px; }
             @media (max-width: 600px) {
                 h2 { font-size: 1.3rem; }
                 .table th, .table td { font-size: 0.92rem; }
-                input[type="text"] { min-width: 60px; }
+                input[type="text"], select { min-width: 60px; }
             }
         </style>
       </head>
@@ -103,6 +103,13 @@ def index():
                             <td>
                                 <input type="hidden" name="id" value="{{ row[i] }}">
                                 <span class="fw-bold">{{ row[i] }}</span>
+                            </td>
+                        {% elif headers[i] == "auth_code_updated" %}
+                            <td>
+                                <select class="form-select" name="auth_code_updated">
+                                    <option value="0" {% if row[i]==0 %}selected{% endif %}>False</option>
+                                    <option value="1" {% if row[i]==1 %}selected{% endif %}>True</option>
+                                </select>
                             </td>
                         {% else %}
                             <td>
