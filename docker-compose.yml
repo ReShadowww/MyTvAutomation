@@ -13,15 +13,21 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-  
+
   flask:
-    build: .
+    build: ./flask
     container_name: flask-web
-    restart: unless-stopped
     ports:
       - "5000:5000"
     depends_on:
       - mysql
-  
+
+  tv_startup:
+    build: ./tv_startup
+    container_name: tv-startup
+    depends_on:
+      - mysql
+    restart: "no"
+
 volumes:
   mysql_data:
