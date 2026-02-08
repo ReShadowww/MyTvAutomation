@@ -1,28 +1,31 @@
 import requests
+from requests.auth import HTTPBasicAuth
 import mysql.connector
 import time
 import sys
 
 # ---- MySQL Config ----
 db_config = {
-    'host': 'mysql',            # Must match service name in docker-compose.yml
+    'host': 'mysql',  # Must match service name in docker-compose.yml
     'user': 'localuser',
     'password': 'localpass',
     'database': 'mydb',
     'port': 3306
 }
 
+# --- Utility to get tokens from DB ---
 def get_tokens_from_db():
     for i in range(30):  # Try for up to 30 seconds
         try:
             conn = mysql.connector.connect(**db_config)
             cursor = conn.cursor()
-            cursor.execute("SELECT access_token, device_id FROM tokens LIMIT 1")
+            cursor.execute("SELECT access_token, device_id, client_id, client_secret, refresh_token FROM tokens LIMIT 1")
             result = cursor.fetchone()
             cursor.close()
             conn.close()
-            if result and result[0] and result[1]:
-                return result[0], result[1]
+            if result and all(result):
+                access_token, device_id, client_id, client_secret, refresh_token = result
+                return access_token, device_id, client_id, client_secret, refresh_token
             print("❌ No tokens found in database, retrying...")
         except Exception as e:
             print(f"Waiting for MySQL/tokens ({i+1}/30): {e}")
@@ -30,7 +33,23 @@ def get_tokens_from_db():
     print("❌ Could not get tokens from database.")
     sys.exit(1)
 
-# ---- SmartThingsTV class ----
+# --- Update tokens in DB ---
+def set_tokens_in_db(new_access_token, new_refresh_token):
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE tokens SET access_token=%s, refresh_token=%s WHERE id=1",
+            (new_access_token, new_refresh_token)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print("✅ Database updated with new tokens.")
+    except Exception as e:
+        print(f"❌ Failed to update tokens in database: {e}")
+
+# --- SmartThingsTV class (unchanged) ---
 class SmartThingsTV:
     def __init__(self, token, device_id, check_interval=3, max_wait_power=30, max_wait_input=20):
         self.token = token
@@ -100,12 +119,54 @@ class SmartThingsTV:
         else:
             print(f"TV input is already {target_input}. No change needed.")
 
-# ---- Main ----
+# --- Function to refresh tokens ---
+def refresh_tokens(client_id, client_secret, refresh_token):
+    url = "https://api.smartthings.com/oauth/token"
+    data = {
+        "grant_type": "refresh_token",
+        "client_id": client_id,
+        "refresh_token": refresh_token
+    }
+    try:
+        response = requests.post(
+            url,
+            auth=HTTPBasicAuth(client_id, client_secret),
+            data=data
+        )
+        if response.status_code == 200:
+            token_data = response.json()
+            print(
+                "Refreshed: Access Token:", token_data["access_token"],
+                "\nRefresh Token:", token_data["refresh_token"],
+                "\nExpires In:", token_data["expires_in"]
+            )
+            return token_data["access_token"], token_data["refresh_token"]
+        else:
+            print("❌ Token refresh failed:", response.status_code)
+            print("Response:", response.text)
+            return None, None
+    except Exception as e:
+        print("❌ Exception during token refresh:", e)
+        return None, None
 
+# --- Main ---
 if __name__ == "__main__":
     print("Getting tokens from MySQL...")
-    access_token, device_id = get_tokens_from_db()
+    access_token, device_id, client_id, client_secret, refresh_token = get_tokens_from_db()
     print(f"Using access_token: {access_token[:8]}..., device_id: {device_id}")
 
     tv = SmartThingsTV(access_token, device_id)
     tv.ensure_on_and_input(target_input="HDMI1", tuner_input="dtv")
+
+    print("Entering hourly refresh loop...")
+    while True:
+        print("Refreshing tokens from database and SmartThings OAuth...")
+        # Always re-load the latest tokens from the DB in case they were updated elsewhere
+        _, _, client_id, client_secret, refresh_token = get_tokens_from_db()
+
+        new_access_token, new_refresh_token = refresh_tokens(client_id, client_secret, refresh_token)
+        if new_access_token and new_refresh_token:
+            set_tokens_in_db(new_access_token, new_refresh_token)
+        else:
+            print("Keeping old tokens due to refresh failure.")
+        time.sleep(3600)  # Wait one hour before next refresh
