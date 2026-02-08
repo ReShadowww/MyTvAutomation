@@ -17,6 +17,7 @@ services:
   flask:
     build: ./flask
     container_name: flask-web
+    restart: unless-stopped
     ports:
       - "5000:5000"
     depends_on:
@@ -25,9 +26,9 @@ services:
   tv_startup:
     build: ./tv_startup
     container_name: tv-startup
+    restart: unless-stopped
     depends_on:
       - mysql
-    restart: "no"
 
 volumes:
   mysql_data:
