@@ -11,8 +11,8 @@ services:
       MYSQL_USER: localuser
       MYSQL_PASSWORD: localpass
     volumes:
+      - ./init/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - mysql_data:/var/lib/mysql
-      - ./init/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - mynet
 
