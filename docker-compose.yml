@@ -12,7 +12,7 @@ services:
       MYSQL_PASSWORD: localpass
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      # - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   flask:
     build: ./flask
