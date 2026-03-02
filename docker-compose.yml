@@ -1,7 +1,7 @@
 services:
   mysql:
     image: mysql:9.6.0
-    container_name: my-local-mysql
+    container_name: mysql
     restart: unless-stopped
     ports:
       - "3306:3306"
@@ -21,14 +21,18 @@ services:
     ports:
       - "5000:5000"
     depends_on:
-      - mysql
-
+      mysql:
+        condition: service_healthy
   tv_startup:
     build: ./tv_startup
     container_name: tv-startup
     restart: unless-stopped
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
 
 volumes:
   mysql_data:
+
+networks:
+  mynet:
