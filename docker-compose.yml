@@ -1,7 +1,7 @@
 services:
   mysql:
     image: mysql:lts
-    container_name: mysql
+    container_name: tv-mysql
     restart: unless-stopped
     ports:
       - "3306:3306"
@@ -11,8 +11,8 @@ services:
       MYSQL_USER: localuser
       MYSQL_PASSWORD: localpass
     volumes:
-      - ./init/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - mysql_data:/var/lib/mysql
+      - ./database/:/docker-entrypoint-initdb.d/
     networks:
       - mynet
 
@@ -24,8 +24,6 @@ services:
       - "5000:5000"
     depends_on:
       - mysql
-    networks:
-      - mynet
 
   tv_startup:
     build: ./tv_startup
@@ -33,11 +31,6 @@ services:
     restart: unless-stopped
     depends_on:
       - mysql
-    networks:
-      - mynet
 
 volumes:
   mysql_data:
-
-networks:
-  mynet:
