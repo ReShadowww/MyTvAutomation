@@ -13,6 +13,8 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - mynet
 
   flask:
     build: ./flask
@@ -23,6 +25,9 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    networks:
+      - mynet
+
   tv_startup:
     build: ./tv_startup
     container_name: tv-startup
@@ -30,6 +35,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    networks:
+      - mynet
 
 volumes:
   mysql_data:
