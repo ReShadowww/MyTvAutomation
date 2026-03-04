@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request, make_response, redirect, url_for
+
 import mysql.connector
+
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -19,57 +21,61 @@ def init_db():
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
 
-        # Create the table if not exists
-        create_table_query = """
-        CREATE TABLE IF NOT EXISTS tokens (
-            id INT PRIMARY KEY AUTO_INCREMENT,
-            client_id VARCHAR(64) NOT NULL,
-            client_secret VARCHAR(64) NOT NULL,
-            refresh_token VARCHAR(64) NOT NULL,
-            access_token VARCHAR(64) NOT NULL,
-            device_id VARCHAR(64) NOT NULL,
-            auth_code VARCHAR(16) NOT NULL,
-            auth_code_updated TINYINT(1) NOT NULL
-        );
-        """
-        cursor.execute(create_table_query)
-        conn.commit()
-
-        # Optional: Insert example data if not present
-        check_query = "SELECT COUNT(*) FROM tokens WHERE client_id='00000000-0000-0000-0000-000000000000'"
-        cursor.execute(check_query)
-        (count,) = cursor.fetchone()
-        if count == 0:
-            insert_query = """
-            INSERT INTO tokens (
-                client_id,
-                client_secret,
-                refresh_token,
-                access_token,
-                device_id,
-                auth_code,
-                auth_code_updated
-            ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s
-            )
+        # 1. Check if table exists
+        cursor.execute(
             """
-            cursor.execute(
-                insert_query,
-                (
-                    "00000000-0000-0000-0000-000000000000",
-                    "00000000-0000-0000-0000-000000000000",
-                    "00000000-0000-0000-0000-000000000000",
-                    "00000000-0000-0000-0000-000000000000",
-                    "00000000-0000-0000-0000-000000000000",
-                    "000000",
-                    0,
-                ),
-            )
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_schema = %s
+              AND table_name = 'tokens'
+        """,
+            (db_config["database"],),
+        )
+        table_exists = cursor.fetchone()[0] == 1
+
+        # 2. Create table if not exists
+        if not table_exists:
+            create_table_query = """
+            CREATE TABLE tokens (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                client_id VARCHAR(64) NOT NULL,
+                client_secret VARCHAR(64) NOT NULL,
+                refresh_token VARCHAR(64) NOT NULL,
+                access_token VARCHAR(64) NOT NULL,
+                device_id VARCHAR(64) NOT NULL,
+                auth_code VARCHAR(16) NOT NULL,
+                auth_code_updated TINYINT(1) NOT NULL
+            );
+            """
+            cursor.execute(create_table_query)
             conn.commit()
+
+        # 3. Check if table is empty
+        cursor.execute("SELECT COUNT(*) FROM tokens")
+        row_count = cursor.fetchone()[0]
+
+        # 4. If empty, insert example data
+        if row_count == 0:
+            insert_query = """
+            INSERT INTO tokens (client_id, client_secret, refresh_token, access_token, device_id, auth_code, auth_code_updated)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """
+            example_data = (
+                "00000000-0000-0000-0000-000000000000",
+                "00000000-0000-0000-0000-000000000000",
+                "00000000-0000-0000-0000-000000000000",
+                "00000000-0000-0000-0000-000000000000",
+                "00000000-0000-0000-0000-000000000000",
+                "000000",
+                0,  # auth_code_updated
+            )
+            cursor.execute(insert_query, example_data)
+            conn.commit()
+            print("Inserted example data.")
 
         cursor.close()
         conn.close()
-    except Error as e:
+    except mysql.connector.Error as e:
         print("Error initializing DB:", e)
 
 

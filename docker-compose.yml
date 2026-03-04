@@ -16,7 +16,7 @@ services:
 
   flask:
     build: ./flask
-    container_name: flask-web
+    container_name: tv-flask-web
     restart: unless-stopped
     ports:
       - "5000:5000"
