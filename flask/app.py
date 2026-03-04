@@ -5,6 +5,9 @@ import mysql.connector
 import requests
 from requests.auth import HTTPBasicAuth
 
+import time
+import sys
+
 app = Flask(__name__)
 
 db_config = {
@@ -17,66 +20,81 @@ db_config = {
 
 
 def init_db():
-    try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor()
+    max_retries = 5
+    retry_delay = 5  # seconds
+    attempts = 0
 
-        # 1. Check if table exists
-        cursor.execute(
-            """
-            SELECT COUNT(*)
-            FROM information_schema.tables
-            WHERE table_schema = %s
-              AND table_name = 'tokens'
-        """,
-            (db_config["database"],),
-        )
-        table_exists = cursor.fetchone()[0] == 1
+    while attempts < max_retries:
+        try:
+            conn = mysql.connector.connect(**db_config)
+            cursor = conn.cursor()
 
-        # 2. Create table if not exists
-        if not table_exists:
-            create_table_query = """
-            CREATE TABLE tokens (
-                id INT PRIMARY KEY AUTO_INCREMENT,
-                client_id VARCHAR(64) NOT NULL,
-                client_secret VARCHAR(64) NOT NULL,
-                refresh_token VARCHAR(64) NOT NULL,
-                access_token VARCHAR(64) NOT NULL,
-                device_id VARCHAR(64) NOT NULL,
-                auth_code VARCHAR(16) NOT NULL,
-                auth_code_updated TINYINT(1) NOT NULL
-            );
-            """
-            cursor.execute(create_table_query)
-            conn.commit()
-
-        # 3. Check if table is empty
-        cursor.execute("SELECT COUNT(*) FROM tokens")
-        row_count = cursor.fetchone()[0]
-
-        # 4. If empty, insert example data
-        if row_count == 0:
-            insert_query = """
-            INSERT INTO tokens (client_id, client_secret, refresh_token, access_token, device_id, auth_code, auth_code_updated)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """
-            example_data = (
-                "00000000-0000-0000-0000-000000000000",
-                "00000000-0000-0000-0000-000000000000",
-                "00000000-0000-0000-0000-000000000000",
-                "00000000-0000-0000-0000-000000000000",
-                "00000000-0000-0000-0000-000000000000",
-                "000000",
-                0,  # auth_code_updated
+            # 1. Check if table exists
+            cursor.execute(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.tables
+                WHERE table_schema = %s
+                  AND table_name = 'tokens'
+                """,
+                (db_config["database"],),
             )
-            cursor.execute(insert_query, example_data)
-            conn.commit()
-            print("Inserted example data.")
+            table_exists = cursor.fetchone()[0] == 1
 
-        cursor.close()
-        conn.close()
-    except mysql.connector.Error as e:
-        print("Error initializing DB:", e)
+            # 2. Create table if not exists
+            if not table_exists:
+                create_table_query = """
+                CREATE TABLE tokens (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    client_id VARCHAR(64) NOT NULL,
+                    client_secret VARCHAR(64) NOT NULL,
+                    refresh_token VARCHAR(64) NOT NULL,
+                    access_token VARCHAR(64) NOT NULL,
+                    device_id VARCHAR(64) NOT NULL,
+                    auth_code VARCHAR(16) NOT NULL,
+                    auth_code_updated TINYINT(1) NOT NULL
+                );
+                """
+                cursor.execute(create_table_query)
+                conn.commit()
+
+            # 3. Check if table is empty
+            cursor.execute("SELECT COUNT(*) FROM tokens")
+            row_count = cursor.fetchone()[0]
+
+            # 4. If empty, insert example data
+            if row_count == 0:
+                insert_query = """
+                INSERT INTO tokens (client_id, client_secret, refresh_token, access_token, device_id, auth_code, auth_code_updated)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """
+                example_data = (
+                    "00000000-0000-0000-0000-000000000000",
+                    "00000000-0000-0000-0000-000000000000",
+                    "00000000-0000-0000-0000-000000000000",
+                    "00000000-0000-0000-0000-000000000000",
+                    "00000000-0000-0000-0000-000000000000",
+                    "000000",
+                    0,  # auth_code_updated
+                )
+                cursor.execute(insert_query, example_data)
+                conn.commit()
+                print("Inserted example data.")
+
+            cursor.close()
+            conn.close()
+            print("Database initialized successfully.")
+            return  # Success, exit the function
+
+        except mysql.connector.Error as e:
+            attempts += 1
+            print(f"Error initializing DB (attempt {attempts}/{max_retries}):", e)
+            if attempts < max_retries:
+                print(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                print("Failed to initialize DB after multiple attempts. Exiting.")
+                sys.exit(1)
 
 
 @app.route("/", methods=["GET", "POST"])
